@@ -19,13 +19,13 @@ double multiv_prob(double sig_x, double sig_y, double x_obs, double y_obs,
   return weight;
 }
 
-LandmarkObs homogenous_trans(const LandmarkObs& obs, double car_to_map_rot, double x, double y){
+LandmarkObs homogenous_trans(const LandmarkObs& obs, double theta, double x, double y){
     // x and y are in car coordinate.
     LandmarkObs transformed_observation;
     // transform to map x coordinate
-    transformed_observation.x = x + (cos(car_to_map_rot) * obs.x) - (sin(car_to_map_rot) * obs.y);
+    transformed_observation.x = x + (cos(theta) * obs.x) - (sin(theta) * obs.y);
     // transform to map y coordinate
-    transformed_observation.y = y + (sin(car_to_map_rot) * obs.x) + (cos(car_to_map_rot) * obs.y);
+    transformed_observation.y = y + (sin(theta) * obs.x) + (cos(theta) * obs.y);
     transformed_observation.id = obs.id;
     return transformed_observation;
 }

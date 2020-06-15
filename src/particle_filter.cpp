@@ -38,7 +38,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   normal_distribution<double> dist_theta(theta, std[2]);
   num_particles = 100;  // TODO: Set the number of particles
 
-  for (int i; i<num_particles; i++){
+  for (int i=0; i<num_particles; i++){
     Particle part;
     part.id = i;
     part.weight = 1.0;
@@ -63,7 +63,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   normal_distribution<double> dist_x(0, std_pos[0]);
   normal_distribution<double> dist_y(0, std_pos[1]);
   normal_distribution<double> dist_theta(0, std_pos[2]);
-  for (auto part : particles){
+  for (auto& part : particles){
     double theta_new = part.theta + yaw_rate*delta_t;
     part.x += velocity/yaw_rate*(sin(theta_new) - sin(part.theta));
     part.y += velocity/yaw_rate*(cos(part.theta) - cos(theta_new));
@@ -91,9 +91,10 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
     int best_id = 0;
     double best_dis_sq = inf;
     for (const auto& p : predicted){
-      if (p.x ** 2 + p.y ** 2 < best_dis){
+      double cur_dist_sq = (p.x - obs.x) * (p.x - obs.x) + (p.y - obs.y) * (p.y - obs.y) ;
+      if (cur_dist_sq < best_dis_sq){
         best_id = p.id;
-        best_dis_sq = p.x ** 2 + p.y ** 2;
+        best_dis_sq = cur_dist_sq;
       }
     }
     obs.id = best_id;
@@ -122,19 +123,18 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   // std::cout << observations.size() << "\n"; // small number such as 6
   // std::cout << map_landmarks.landmark_list.size() << "\n"; // always 42
 
-  const car_to_map_rot = -M_PI/2; // -90 degrees
-  // frame transformation from vehicle coordinate to map coordinate
-  vector<LandmarkObs> transformed_observations;
-  for (const auto& part : particles){
-    // frame transformation 
+  for (auto& part : particles){
+    part.weight = 1;
+    // frame transformation from vehicle coordinate to map coordinate
+  	vector<LandmarkObs> transformed_observations;
     for (const auto& obs : observations){
-      transformed_observations.emplace_back(homogenous_trans(obs, car_to_map_rot, part.x, part.y));
+      transformed_observations.emplace_back(homogenous_trans(obs, part.theta, part.x, part.y));
     }
     // prepare predicted based on lidar range
     vector<LandmarkObs> predicted_landmarks;
     for (const auto &landmark : map_landmarks.landmark_list) {
         if (fabs(landmark.x_f - part.x) <= sensor_range && fabs(landmark.y_f - part.y) <= sensor_range) {
-            predicted_landmarks.emplace_back(LandmarkObs{landmakr.id_i, landmakr.x_f, landmakr.y_f});
+            predicted_landmarks.emplace_back(LandmarkObs{landmark.id_i, landmark.x_f, landmark.y_f});
         }
     }
     // Associate the each trasnformed observation to their cloest landmarks
@@ -144,10 +144,18 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       for (const auto& landmark : map_landmarks.landmark_list){
         if (transformed_obs.id==landmark.id_i){
           part.weight *= multiv_prob(std_landmark[0], std_landmark[1], transformed_obs.x, transformed_obs.y, landmark.x_f, landmark.y_f); 
+//           std::cout << "]]]]]]]]]]]]]]]]]]]]]]\n";
+//           std::cout << transformed_obs.x << "\n";
+//           std::cout << transformed_obs.y << "\n";
+//           std::cout << landmark.x_f << "\n";
+//           std::cout << landmark.y_f << "\n";
+//           std::cout << part.weight << "\n";
           break;
         }
       }
     }
+//     std::cout << "--------------\n";
+//     std::cout << part.weight << "\n";
   }
 }
 
@@ -162,15 +170,20 @@ void ParticleFilter::resample() {
   std::random_device rd;
   std::mt19937 gen(rd());
   // Setup the weights
-  std::vector<int> weights;
-  for(int i=0; i<particles.size(); ++i) {
-    weights.push_back(particles[i].weight);
+  std::vector<double> weights_all;
+  for(uint i=0; i<particles.size(); ++i) {
+//     std::cout << "--------------\n";
+//     std::cout << i << " "<< particles[i].weight << "\n";
+    weights_all.push_back(particles[i].weight);
   }
   // Create the distribution with weights
-  std::discrete_distribution<> d(weights.begin(), weights.end());
+  std::discrete_distribution<> d(weights_all.begin(), weights_all.end());
+  std::vector<double> p = d.probabilities();
   // Resample particles
-  for(int i=0; i<particles.size(); ++i) {
-    parts_new.push_back(particles[d(gen)]);
+  for(uint i=0; i<particles.size(); ++i) {
+    int index = d(gen);
+//     std::cout << index << "\n";
+    parts_new.push_back(particles[index]);
   }
   particles = parts_new;
 }
