@@ -64,10 +64,15 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   normal_distribution<double> dist_y(0, std_pos[1]);
   normal_distribution<double> dist_theta(0, std_pos[2]);
   for (auto& part : particles){
-    double theta_new = part.theta + yaw_rate*delta_t;
-    part.x += velocity/yaw_rate*(sin(theta_new) - sin(part.theta));
-    part.y += velocity/yaw_rate*(cos(part.theta) - cos(theta_new));
-    part.theta = theta_new;
+    if (fabs(yaw_rate) < 0.0001) { // if velocity is constant
+      part.x += velocity * delta_t * cos(part.theta);
+      part.y += velocity * delta_t * sin(part.theta);
+    } else {
+      double theta_new = part.theta + yaw_rate*delta_t;
+      part.x += velocity/yaw_rate*(sin(theta_new) - sin(part.theta));
+      part.y += velocity/yaw_rate*(cos(part.theta) - cos(theta_new));
+      part.theta = theta_new;
+    }
     // add random noise
     part.x += dist_x(gen);
     part.y += dist_y(gen);
